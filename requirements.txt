@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
+pandas
+spacy
+tqdm
+streamlit
+pillow
+numpy
+matplotlib
+tensorboard
