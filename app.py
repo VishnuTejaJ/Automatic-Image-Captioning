@@ -3,8 +3,10 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from model import CNNtoRNN
-from dataset import FlickrDataset
+import pickle
 import os
+import urllib.request
+from pathlib import Path
 
 # Page config
 st.set_page_config(
@@ -14,57 +16,73 @@ st.set_page_config(
 st.title("📷 Image Caption Generator")
 st.markdown("Upload an image and the AI will describe it for you!")
 
-# Sidebar for settings
-st.sidebar.header("Settings")
-model_path = st.sidebar.text_input("Model Checkpoint Path", "my_checkpoint.pth.tar")
+# Hugging Face model URL
+CHECKPOINT_URL = "https://huggingface.co/VishnuTejaJ/my_checkpoint.pth.tar/resolve/main/my_checkpoint.pth.tar"
+CHECKPOINT_PATH = "my_checkpoint.pth.tar"
+VOCAB_PATH = "vocab.pkl"
+
+
+def download_checkpoint(url, destination):
+    """Download checkpoint from Hugging Face if not present locally."""
+    if not os.path.exists(destination):
+        st.info(f"Downloading model checkpoint from Hugging Face... (~320MB)")
+        with st.spinner("Downloading checkpoint... This may take a few minutes."):
+            try:
+                urllib.request.urlretrieve(url, destination)
+                st.success("Checkpoint downloaded successfully!")
+            except Exception as e:
+                st.error(f"Failed to download checkpoint: {e}")
+                st.stop()
+    return destination
+
+
+@st.cache_data
+def load_vocabulary(vocab_path):
+    """Load the pickled vocabulary."""
+    if not os.path.exists(vocab_path):
+        st.error(
+            f"Vocabulary file not found at {vocab_path}. Please run save_vocab.py first."
+        )
+        st.stop()
+
+    with open(vocab_path, "rb") as f:
+        vocab = pickle.load(f)
+    return vocab
 
 
 @st.cache_resource
-def load_resources(checkpoint_path):
-    # Load dataset to get vocab
-    # We assume the data is in the same relative path as training
-    transform = transforms.Compose(
-        [transforms.Resize((224, 224)), transforms.ToTensor()]
-    )
+def load_model_and_vocab():
+    """Load vocabulary and model."""
+    # Load vocabulary
+    vocab = load_vocabulary(VOCAB_PATH)
 
-    # Note: This might be slow if it rebuilds vocab every time.
-    # In a real app, we'd pickle the vocab.
-    # For now, it's fine as Flickr8k is small.
-    dataset = FlickrDataset(
-        root_dir="data/Images",
-        captions_file="data/captions.txt",
-        transform=transform,
-    )
+    # Download checkpoint if needed
+    checkpoint_path = download_checkpoint(CHECKPOINT_URL, CHECKPOINT_PATH)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Model params (must match training)
     embed_size = 256
     hidden_size = 256
-    vocab_size = len(dataset.vocab)
+    vocab_size = len(vocab)
     attention_dim = 256
 
     model = CNNtoRNN(embed_size, hidden_size, vocab_size, attention_dim).to(device)
 
-    if os.path.exists(checkpoint_path):
+    try:
         checkpoint = torch.load(checkpoint_path, map_location=device)
         model.load_state_dict(checkpoint["state_dict"])
         model.eval()
-        st.sidebar.success("Model loaded successfully!")
-    else:
-        st.sidebar.warning(
-            f"Checkpoint not found at {checkpoint_path}. Using random weights."
-        )
+        st.sidebar.success("✅ Model loaded successfully!")
+    except Exception as e:
+        st.sidebar.error(f"Error loading model: {e}")
+        st.stop()
 
-    return model, dataset, device
+    return model, vocab, device
 
 
 # Load resources
-if os.path.exists("data/captions.txt"):
-    model, dataset, device = load_resources(model_path)
-else:
-    st.error("Dataset not found! Please check the path.")
-    st.stop()
+model, vocab, device = load_model_and_vocab()
 
 # File uploader
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
@@ -86,7 +104,7 @@ if uploaded_file is not None:
             img_tensor = transform(image).unsqueeze(0).to(device)
 
             # Generate
-            caption = model.caption_image(img_tensor.squeeze(0), dataset.vocab)
+            caption = model.caption_image(img_tensor.squeeze(0), vocab)
 
             # Clean up caption (remove <SOS>, <EOS>)
             cleaned_caption = []

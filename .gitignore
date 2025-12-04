@@ -35,6 +35,9 @@ data/captions.txt
 *.pth.tar
 *.pth
 
+# Vocabulary (REQUIRED for deployment - do not ignore)
+!vocab.pkl
+
 # Logs
 runs/
 logs/
