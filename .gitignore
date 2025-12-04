@@ -29,7 +29,8 @@ ENV/
 
 # Data
 data/Images/
-data/captions.txt
+# Keep captions.txt for vocabulary building
+!data/captions.txt
 
 # Models
 *.pth.tar
