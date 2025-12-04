@@ -5,7 +5,7 @@ from PIL import Image
 from model import CNNtoRNN
 from dataset import FlickrDataset
 import os
-import urllib.request
+from huggingface_hub import hf_hub_download
 
 # Page config
 st.set_page_config(
@@ -15,23 +15,35 @@ st.set_page_config(
 st.title("📷 Image Caption Generator")
 st.markdown("Upload an image and the AI will describe it for you!")
 
-# HuggingFace model URL
-CHECKPOINT_URL = "https://huggingface.co/VishnuTejaJ/my_checkpoint.pth.tar/resolve/main/my_checkpoint.pth.tar"
+# HuggingFace model details
+HF_REPO = "VishnuTejaJ/my_checkpoint.pth.tar"
+HF_FILENAME = "my_checkpoint.pth.tar"
 CHECKPOINT_PATH = "my_checkpoint.pth.tar"
 
 
-def download_checkpoint(url, destination):
+def download_checkpoint():
     """Download checkpoint from HuggingFace if not present locally."""
-    if not os.path.exists(destination):
+    if not os.path.exists(CHECKPOINT_PATH):
         st.info(f"Downloading model checkpoint from HuggingFace... (~320MB)")
         with st.spinner("Downloading checkpoint... This may take a few minutes."):
             try:
-                urllib.request.urlretrieve(url, destination)
+                # Use huggingface_hub for better retry logic and rate limit handling
+                downloaded_path = hf_hub_download(
+                    repo_id=HF_REPO,
+                    filename=HF_FILENAME,
+                    cache_dir=".",
+                    local_dir=".",
+                    local_dir_use_symlinks=False,
+                )
                 st.success("Checkpoint downloaded successfully!")
+                return downloaded_path
             except Exception as e:
                 st.error(f"Failed to download checkpoint: {e}")
+                st.info(
+                    "💡 Tip: If you see a rate limit error, please wait a few minutes and refresh the page."
+                )
                 st.stop()
-    return destination
+    return CHECKPOINT_PATH
 
 
 @st.cache_resource
@@ -73,7 +85,7 @@ def load_resources(checkpoint_path):
 
 
 # Download checkpoint from HuggingFace
-checkpoint_path = download_checkpoint(CHECKPOINT_URL, CHECKPOINT_PATH)
+checkpoint_path = download_checkpoint()
 
 # Load resources
 if os.path.exists("data/captions.txt"):
