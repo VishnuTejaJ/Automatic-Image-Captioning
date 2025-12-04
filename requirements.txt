@@ -5,7 +5,7 @@ spacy
 tqdm
 streamlit
 pillow
-numpy
+numpy<2.0.0
 matplotlib
 tensorboard
 huggingface_hub
