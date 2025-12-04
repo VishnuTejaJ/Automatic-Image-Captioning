@@ -16,7 +16,7 @@ st.title("📷 Image Caption Generator")
 st.markdown("Upload an image and the AI will describe it for you!")
 
 # HuggingFace model details
-HF_REPO = "VishnuTejaJ/my_checkpoint.pth.tar"
+HF_REPO = "VishnuTejaJ/my_checkpoint.pth.tar/tree/main"
 HF_FILENAME = "my_checkpoint.pth.tar"
 CHECKPOINT_PATH = "my_checkpoint.pth.tar"
 
